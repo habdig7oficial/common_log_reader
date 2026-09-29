@@ -3,8 +3,7 @@
 #include "stdlib.h"
 #include "time.h"
 
-#include "lib/hashmap.h"
-#include "lib/hashmap_func.h"
+
 
 
 char *read_file(char *path){
@@ -31,8 +30,8 @@ LogStats *gen_stats(char *buffer){
         LogEntry log;
         LogStats *stats = (LogStats*)malloc(sizeof(LogStats));
 
-        const long long zero_val = 0;
-        Hashmap *hashmap = hashmap_init(20, hash, comparable_str, print_str, print_str);
+        const long long zero_val = 1;
+        stats -> urls = hashmap_init(20, hash, comparable_str, print_str, print_long_long);
 
         while(line_start != NULL && *line_start != '\0'){
             char *next_line = strchr(line_start, '\n');
@@ -52,13 +51,13 @@ LogStats *gen_stats(char *buffer){
             stats -> total_requests++;
             stats -> total_bytes += log.bytes;
 
-            void *was_accessed = hashmap -> search(hashmap, (void *)log.url);
+            void *was_accessed = stats -> urls -> search(stats -> urls, (void *)log.url);
 
             if(was_accessed == NULL)
-                hashmap -> insert(hashmap, (void *)log.url, (void*)&zero_val, strlen(log.url), sizeof(zero_val));
+                stats -> urls -> insert(stats -> urls, (void *)log.url, (void*)&zero_val, strlen(log.url), sizeof(zero_val));
             else {
                 (*(long long*)was_accessed)++;
-                printf("%s -> %lld\n\n", log.url, *(long long*)was_accessed);
+                //printf("%s -> %lld\n\n", log.url, *(long long*)was_accessed);
             }
 
 
@@ -80,6 +79,10 @@ int main(int argc, char *argv[]){
 
         clock_t begin = clock();
             char *buffer = read_file(argv[i]);
+
+            if(buffer == NULL)
+                return 1;
+
             LogStats *stats = gen_stats(buffer);
         clock_t end = clock();
 
@@ -93,9 +96,15 @@ int main(int argc, char *argv[]){
 
         printf("------------------------------------------------------------\nESTATÍSTICAS BÁSICAS\n------------------------------------------------------------\n\n");
         printf("Total de Requisições:\t%lld\nRequisições 200 (OK):\t%lld (%.2f%%)\nRequisições 404 (Not Found):\t%lld (%.2f%%)\nTotal de Bytes:\t%lld\nMédia de Bytes/Req:\t%f bytes\nTaxa de Erro Geral:\t%f%%\n", stats -> total_requests, stats -> total_200, rate_200 * 100, stats -> total_404, rate_404 * 100, stats -> total_bytes, stats -> avg_bytes, stats -> error_rate * 100);
+       
+        stats -> urls -> print(stats -> urls);
+        //stats -> urls -> lambda(stats -> urls);
 
         free(buffer);
+        free_hashmap(stats -> urls); /* Always free hashmap befor the buffer*/
         free(stats);
+
+        //
     }
 
     return 0;

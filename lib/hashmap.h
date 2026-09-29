@@ -20,6 +20,8 @@ typedef void* (*free_func)(struct Hashmap *);
 typedef void (*printer_func)(struct Hashmap *);
 typedef void (*printer_impl)(void *);
 
+typedef void (*lambda_func)(struct Hashmap *);
+
 typedef struct Hashmap{
   Node **hashmap;
   int buckets;
@@ -35,13 +37,16 @@ typedef struct Hashmap{
   printer_func print;
   printer_impl print_key;
   printer_impl print_val;
+
+  lambda_func lambda;
   
+  long keys;
 } Hashmap;
 
 
 void insert_hashmap(Hashmap *ctx, void *key, void *value, size_t size_key, size_t size_val){
   int pos = ctx -> hash(ctx, key);
-  printf("\nPos: %d\n", pos);
+  //printf("\nPos: %d\n", pos);
 
   //ctx -> print_key(key);
   //ctx -> print_val(value);
@@ -56,11 +61,15 @@ void insert_hashmap(Hashmap *ctx, void *key, void *value, size_t size_key, size_
   pair -> key = save_key;
   pair -> val = save_val;
 
-  printf("Pair %p\n", pair);
+  //printf("Pair %p\n", pair);
 
   
   ctx -> hashmap[pos] = prepend_ptr(ctx -> hashmap[pos], pair);
+  ctx -> keys++;
+}
 
+void lambda(Hashmap *ctx){
+    printf("%ld", ctx -> keys);
 }
 
 void *search(Hashmap *ctx, void *key){
@@ -96,6 +105,7 @@ void delete(Hashmap *ctx, void *key){
   free(node -> ptr_value);
   free(node);
   
+  ctx -> keys--;
   return;
 }
 
@@ -155,6 +165,8 @@ Hashmap *hashmap_init(int m, hash_func h, comparator comparator, printer_impl pr
   hashmap -> free = free_hashmap;
   hashmap -> print_val = printer_val;
   hashmap -> print = printer_hashmap;
+
+  hashmap -> lambda = lambda;
   
   for(int i = 0; i < m; i++){
     ///hashmap -> hashmap[i] = (Node *) malloc(sizeof(Node));
@@ -163,6 +175,9 @@ Hashmap *hashmap_init(int m, hash_func h, comparator comparator, printer_impl pr
     //printf("%d) %p\n", i, hashmap -> hashmap[i]);
     //print_list(hashmap -> hashmap[i], int_printer);
   }
+
+
+  hashmap -> keys = 0;
   
   return hashmap;
 }
