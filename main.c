@@ -70,7 +70,7 @@ LogStats *gen_stats(char *buffer){
         return stats;
 }
 
-LogStats *worker(char *path, double* took){
+LogStats *worker(char *path, double* task){
         clock_t begin = clock();
             char *buffer = read_file(path);
             if(buffer == NULL)
@@ -79,7 +79,7 @@ LogStats *worker(char *path, double* took){
             LogStats *stats = gen_stats(buffer);
         clock_t end = clock();
 
-        double task = (double)(begin - end) / CLOCKS_PER_SEC; 
+        *task = (double)(begin - end) / CLOCKS_PER_SEC; 
         //stats -> urls -> print(stats -> urls);
         //stats -> urls -> lambda(stats -> urls);
 
@@ -110,7 +110,7 @@ int main(int argc, char *argv[]){
         //
     }
 
-    LogStats final_stats[argc - 1] = {};
+    LogStats final_stats = {};
     for(int i = 0; i < argc - 1; i++){
         double rate_200 = (double)global_stats[i] -> total_200 / global_stats[i] -> total_requests;
         double rate_404 = (double)global_stats[i] -> total_404 / global_stats[i] -> total_requests;
@@ -120,11 +120,32 @@ int main(int argc, char *argv[]){
         printf("------------------------------------------------------------\nESTATÍSTICAS BÁSICAS\n------------------------------------------------------------\n\n");
         printf("Total de Requisições:\t%lld\nRequisições 200 (OK):\t%lld (%.2f%%)\nRequisições 404 (Not Found):\t%lld (%.2f%%)\nTotal de Bytes:\t%lld\nMédia de Bytes/Req:\t%f bytes\nTaxa de Erro Geral:\t%f%%\n", global_stats[i] -> total_requests, global_stats[i] -> total_200, rate_200 * 100, global_stats[i] -> total_404, rate_404 * 100, global_stats[i] -> total_bytes, global_stats[i] -> avg_bytes, global_stats[i] -> error_rate * 100);
 
+        final_stats.total_requests += global_stats[i] -> total_requests;
+        final_stats.total_404 += global_stats[i] -> total_404;
+        final_stats.total_200 += global_stats[i] -> total_200;
+        final_stats.total_bytes += global_stats[i] -> total_bytes;
+        final_stats.errors += global_stats[i] -> errors;
+
+
+
+        // hardcoded 
+        for(int j = 0; j < 24; j++)
+            final_stats.requests_per_hour[j] += global_stats[i] -> requests_per_hour[j];
+        
+
+        // Free sequence
         free_hashmap(global_stats[i] -> urls); /* Always free hashmap befor the buffer*/
         free(global_stats[i]);
-
-        final_stats[i].total_requests += global_stats[i] -> total_requests;
     }
+
+    double rate_200 = (double)final_stats.total_200 / final_stats.total_requests;
+    double rate_404 = (double)final_stats.total_404 / final_stats.total_requests;
+    final_stats.avg_bytes = (double)final_stats.total_bytes / final_stats.total_requests;
+    final_stats.error_rate = (double)final_stats.errors / final_stats.total_requests;
+
+    printf("------------------------------------------------------------\nESTATÍSTICAS BÁSICAS FINAIS \n------------------------------------------------------------\n\n");
+    printf("Total de Requisições:\t%lld\nRequisições 200 (OK):\t%lld (%.2f%%)\nRequisições 404 (Not Found):\t%lld (%.2f%%)\nTotal de Bytes:\t%lld\nMédia de Bytes/Req:\t%f bytes\nTaxa de Erro Geral:\t%f%%\n", final_stats.total_requests, final_stats.total_200, rate_200 * 100, final_stats.total_404, rate_404 * 100, final_stats.total_bytes, final_stats.avg_bytes, final_stats.error_rate * 100);
+
  
     return 0;
 }
