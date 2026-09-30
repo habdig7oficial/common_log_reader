@@ -25,6 +25,7 @@ char *read_file(char *path){
         return buffer;
 }
 
+
 LogStats *gen_stats(char *buffer){
         char *line_start = buffer;
         LogEntry log;
@@ -43,6 +44,8 @@ LogStats *gen_stats(char *buffer){
 
             if(log.status >= 400 && log.status <= 599)
                 stats -> errors++;
+
+            stats -> method_dist[log.status - FIRST_HTTP_STATUS]++;
 
             switch(log.status){
                 case 404: stats -> total_404++;   break;
@@ -70,22 +73,31 @@ LogStats *gen_stats(char *buffer){
         return stats;
 }
 
-LogStats *worker(char *path, double* task){
-        clock_t begin = clock();
-            char *buffer = read_file(path);
-            if(buffer == NULL)
-                return NULL;
+typedef struct {
+    char *path;
+    double *task;
+} WorkerParams;
 
-            LogStats *stats = gen_stats(buffer);
-        clock_t end = clock();
+void *worker(void *arg){
+    WorkerParams *p = (WorkerParams *)arg;
+    char *path = p -> path;
+    double *task = p -> task;
 
-        *task = (double)(begin - end) / CLOCKS_PER_SEC; 
-        //stats -> urls -> print(stats -> urls);
-        //stats -> urls -> lambda(stats -> urls);
+    clock_t begin = clock();
+        char *buffer = read_file(path);
+        if(buffer == NULL)
+            return NULL;
 
-        free(buffer);
+        LogStats *stats = gen_stats(buffer);
+    clock_t end = clock();
 
-        return stats;
+    *task = (double)(begin - end) / CLOCKS_PER_SEC; 
+    //stats -> urls -> print(stats -> urls);
+    //stats -> urls -> lambda(stats -> urls);
+
+    free(buffer);
+
+    return (void *)stats;
 }
 
 int main(int argc, char *argv[]){
@@ -93,22 +105,34 @@ int main(int argc, char *argv[]){
     printf("============================================================\nANALISADOR DE LOGS - RELATÓRIO COMPLETO\n============================================================\n\n");
 
     LogStats *global_stats[argc - 1]; // array of pointers to the struct 
+    pthread_t threads[argc - 1]; // number of streams
 
     for(int i = 0; i < argc - 1; i++){
-        printf("ARQUIVO: %s\nTHREADS: %d\n", argv[i + 1], i);
-
+        //printf("ARQUIVO: %s\nTHREADS: %d\n", argv[i + 1], i);
         double task;
-        global_stats[i] = worker(argv[i + 1], &task); // argv starts at 1
 
-        printf("TEMPO DE EXECUÇÃO: %fs\n", task);
+        WorkerParams p = { .path = argv[i + 1], .task =  &task};
+
+        pthread_create(&threads[i], NULL, worker, (void *)&p);
+        //global_stats[i] = worker(argv[i + 1], &task); // argv starts at 1
+
+        //printf("TEMPO DE EXECUÇÃO: %fs\n", task);
         //
         //free(stats);
 
-
-        printf("%lld ", global_stats[i] -> total_200);
-
-        //
+        //printf("Thread %d was started", i);
     }
+
+    printf("The main thread\n");
+
+    for(int i = 0; i < argc - 1; i++){
+        void *aux;
+        pthread_join(threads[i], &aux);
+        global_stats[i] = (LogStats*) aux;
+
+       printf("th %d joined\n", i);
+    }
+
 
     LogStats final_stats = {};
     for(int i = 0; i < argc - 1; i++){
@@ -129,8 +153,11 @@ int main(int argc, char *argv[]){
 
 
         // hardcoded 
-        for(int j = 0; j < 24; j++)
+        for(int j = 0; j < sizeof(final_stats.requests_per_hour) / sizeof(final_stats.requests_per_hour[0]); j++)
             final_stats.requests_per_hour[j] += global_stats[i] -> requests_per_hour[j];
+        
+        for(int j = 0; j < sizeof(final_stats.method_dist) / sizeof(final_stats.method_dist[0]); j++)
+            final_stats.method_dist[j] += global_stats[i] -> method_dist[j];
         
 
         // Free sequence
@@ -146,6 +173,11 @@ int main(int argc, char *argv[]){
     printf("------------------------------------------------------------\nESTATÍSTICAS BÁSICAS FINAIS \n------------------------------------------------------------\n\n");
     printf("Total de Requisições:\t%lld\nRequisições 200 (OK):\t%lld (%.2f%%)\nRequisições 404 (Not Found):\t%lld (%.2f%%)\nTotal de Bytes:\t%lld\nMédia de Bytes/Req:\t%f bytes\nTaxa de Erro Geral:\t%f%%\n", final_stats.total_requests, final_stats.total_200, rate_200 * 100, final_stats.total_404, rate_404 * 100, final_stats.total_bytes, final_stats.avg_bytes, final_stats.error_rate * 100);
 
+    printf("status codes: ");
+    for(int j = 0; j < sizeof(final_stats.method_dist) / sizeof(final_stats.method_dist[0]); j++)
+        if(final_stats.method_dist[j] != 0)
+            printf("(%d: %d) ", j + FIRST_HTTP_STATUS, final_stats.method_dist[j]);
+        
  
     return 0;
 }

@@ -136,6 +136,8 @@ int method_category(const char* method) {
 
 #include "hashmap.h"
 #include "hashmap_func.h"
+
+#define FIRST_HTTP_STATUS 100
 typedef struct {
     // Nivel 1 - Basicas
     long long total_requests;
@@ -149,7 +151,7 @@ typedef struct {
     //IPCount top_ips [10];
     int requests_per_hour [24];
     int status_dist [10];
-    int method_dist [5];
+    int method_dist [500];
 
     long long errors;
 
