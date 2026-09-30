@@ -27,14 +27,15 @@ int parse_log_line(const char* line, LogEntry* entry) {
     if (!ptr) return 0;
     ptr += 3; // Pula "- - "
 
-
+    char *buf = strchr(line,'[');
+    //printf("%s \n", buf);
     
-    /*
+
     // Extrai timestamp
     char timestamp[30];
-    if (sscanf(ptr, "[%29[^]]]", timestamp) != 1) return 0;
-    strcpy(entry->timestamp, timestamp);
-*/    
+    //if (sscanf(ptr, "[%29[^]]]", timestamp) != 1) return 0;
+    //strcpy(entry->timestamp, timestamp);
+   
 
     // Pula o timestamp
     ptr = strstr(ptr, "] ");

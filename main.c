@@ -2,7 +2,7 @@
 #include "stdio.h"
 #include "stdlib.h"
 #include "time.h"
-
+#include "pthread.h"
 
 
 
@@ -60,6 +60,7 @@ LogStats *gen_stats(char *buffer){
                 //printf("%s -> %lld\n\n", log.url, *(long long*)was_accessed);
             }
 
+           // printf("%s", log.timestamp);
 
             *next_line = '\n';
 
@@ -69,21 +70,13 @@ LogStats *gen_stats(char *buffer){
         return stats;
 }
 
-int main(int argc, char *argv[]){
-
-    printf("============================================================\nANALISADOR DE LOGS - RELATÓRIO COMPLETO\n============================================================\n\n");
-
-    for(int i = 1; i < argc; i++){
-
-        printf("ARQUIVO: %s\nTHREADS: %d\n", argv[i], 1);
-
+double worker(char *path, LogStats *stats){
         clock_t begin = clock();
-            char *buffer = read_file(argv[i]);
-
+            char *buffer = read_file(path);
             if(buffer == NULL)
                 return 1;
 
-            LogStats *stats = gen_stats(buffer);
+            stats = gen_stats(buffer);
         clock_t end = clock();
 
         double task = (double)(begin - end) / CLOCKS_PER_SEC;
@@ -97,12 +90,27 @@ int main(int argc, char *argv[]){
         printf("------------------------------------------------------------\nESTATÍSTICAS BÁSICAS\n------------------------------------------------------------\n\n");
         printf("Total de Requisições:\t%lld\nRequisições 200 (OK):\t%lld (%.2f%%)\nRequisições 404 (Not Found):\t%lld (%.2f%%)\nTotal de Bytes:\t%lld\nMédia de Bytes/Req:\t%f bytes\nTaxa de Erro Geral:\t%f%%\n", stats -> total_requests, stats -> total_200, rate_200 * 100, stats -> total_404, rate_404 * 100, stats -> total_bytes, stats -> avg_bytes, stats -> error_rate * 100);
        
-        stats -> urls -> print(stats -> urls);
+        //stats -> urls -> print(stats -> urls);
         //stats -> urls -> lambda(stats -> urls);
 
         free(buffer);
-        free_hashmap(stats -> urls); /* Always free hashmap befor the buffer*/
-        free(stats);
+
+        return task;
+}
+
+int main(int argc, char *argv[]){
+
+    printf("============================================================\nANALISADOR DE LOGS - RELATÓRIO COMPLETO\n============================================================\n\n");
+
+    LogStats *global_stats[argc - 1]; // array of pointers to the struct 
+
+    for(int i = 1; i < argc; i++){
+        printf("ARQUIVO: %s\nTHREADS: %d\n", argv[i], argc - 1);
+
+        worker()
+
+        //free_hashmap(stats -> urls); /* Always free hashmap befor the buffer*/
+        //free(stats);
 
         //
     }
