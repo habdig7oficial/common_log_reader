@@ -70,32 +70,22 @@ LogStats *gen_stats(char *buffer){
         return stats;
 }
 
-double worker(char *path, LogStats *stats){
+LogStats *worker(char *path, double* took){
         clock_t begin = clock();
             char *buffer = read_file(path);
             if(buffer == NULL)
-                return 1;
+                return NULL;
 
-            stats = gen_stats(buffer);
+            LogStats *stats = gen_stats(buffer);
         clock_t end = clock();
 
-        double task = (double)(begin - end) / CLOCKS_PER_SEC;
-        printf("TEMPO DE EXECUÇÃO: %fs\n", task);
-
-        double rate_200 = (double)stats -> total_200 / stats -> total_requests;
-        double rate_404 = (double)stats -> total_404 / stats -> total_requests;
-        stats -> avg_bytes = (double)stats -> total_bytes / stats -> total_requests;
-        stats -> error_rate = (double) stats -> errors / stats -> total_requests;
-
-        printf("------------------------------------------------------------\nESTATÍSTICAS BÁSICAS\n------------------------------------------------------------\n\n");
-        printf("Total de Requisições:\t%lld\nRequisições 200 (OK):\t%lld (%.2f%%)\nRequisições 404 (Not Found):\t%lld (%.2f%%)\nTotal de Bytes:\t%lld\nMédia de Bytes/Req:\t%f bytes\nTaxa de Erro Geral:\t%f%%\n", stats -> total_requests, stats -> total_200, rate_200 * 100, stats -> total_404, rate_404 * 100, stats -> total_bytes, stats -> avg_bytes, stats -> error_rate * 100);
-       
+        double task = (double)(begin - end) / CLOCKS_PER_SEC; 
         //stats -> urls -> print(stats -> urls);
         //stats -> urls -> lambda(stats -> urls);
 
         free(buffer);
 
-        return task;
+        return stats;
 }
 
 int main(int argc, char *argv[]){
@@ -104,16 +94,37 @@ int main(int argc, char *argv[]){
 
     LogStats *global_stats[argc - 1]; // array of pointers to the struct 
 
-    for(int i = 1; i < argc; i++){
-        printf("ARQUIVO: %s\nTHREADS: %d\n", argv[i], argc - 1);
+    for(int i = 0; i < argc - 1; i++){
+        printf("ARQUIVO: %s\nTHREADS: %d\n", argv[i + 1], i);
 
-        worker()
+        double task;
+        global_stats[i] = worker(argv[i + 1], &task); // argv starts at 1
 
-        //free_hashmap(stats -> urls); /* Always free hashmap befor the buffer*/
+        printf("TEMPO DE EXECUÇÃO: %fs\n", task);
+        //
         //free(stats);
+
+
+        printf("%lld ", global_stats[i] -> total_200);
 
         //
     }
 
+    LogStats final_stats[argc - 1] = {};
+    for(int i = 0; i < argc - 1; i++){
+        double rate_200 = (double)global_stats[i] -> total_200 / global_stats[i] -> total_requests;
+        double rate_404 = (double)global_stats[i] -> total_404 / global_stats[i] -> total_requests;
+        global_stats[i] -> avg_bytes = (double)global_stats[i] -> total_bytes / global_stats[i] -> total_requests;
+        global_stats[i] -> error_rate = (double) global_stats[i] -> errors / global_stats[i] -> total_requests;
+
+        printf("------------------------------------------------------------\nESTATÍSTICAS BÁSICAS\n------------------------------------------------------------\n\n");
+        printf("Total de Requisições:\t%lld\nRequisições 200 (OK):\t%lld (%.2f%%)\nRequisições 404 (Not Found):\t%lld (%.2f%%)\nTotal de Bytes:\t%lld\nMédia de Bytes/Req:\t%f bytes\nTaxa de Erro Geral:\t%f%%\n", global_stats[i] -> total_requests, global_stats[i] -> total_200, rate_200 * 100, global_stats[i] -> total_404, rate_404 * 100, global_stats[i] -> total_bytes, global_stats[i] -> avg_bytes, global_stats[i] -> error_rate * 100);
+
+        free_hashmap(global_stats[i] -> urls); /* Always free hashmap befor the buffer*/
+        free(global_stats[i]);
+
+        final_stats[i].total_requests += global_stats[i] -> total_requests;
+    }
+ 
     return 0;
 }
